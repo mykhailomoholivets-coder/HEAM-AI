@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEAM AI — Твой AI-помощник</title>
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0d0d15;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+header {
+  height: 70px;
+  background: #171724;
+  border-bottom: 1px solid #303043;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.logo {
+  font-size: 25px;
+  font-weight: bold;
+  color: #b395ff;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.new-chat {
+  background: #38304d;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+}
+
+main {
+  max-width: 900px;
+  margin: auto;
+  height: calc(100dvh - 70px);
+  display: flex;
+  flex-direction: column;
+}
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 25px 18px;
+}
+
+.welcome {
+  margin-top: 13vh;
+  text-align: center;
+}
+
+.welcome h1 {
+  font-size: 40px;
+  color: #b395ff;
+}
+
+.welcome p {
+  font-size: 17px;
+  color: #9c9bb1;
+}
+
+.message {
+  padding: 15px 20px;
+  border-radius: 17px;
+  margin: 14px 0;
+  max-width: 85%;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.user {
+  background: #604bb1;
+  margin-left: auto;
+}
+
+.ai {
+  background: #242434;
+  border: 1px solid #38384c;
+}
+
+.input-area {
+  margin: 14px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  background: #1c1c2b;
+  border: 1px solid #3c3c52;
+  border-radius: 18px;
+}
+
+textarea {
+  flex: 1;
+  background: transparent;
+  color: white;
+  border: none;
+  outline: none;
+  resize: none;
+  font: 16px Arial;
+  padding: 12px;
+  min-height: 48px;
+}
+
+.send {
+  background: #9975ff;
+  color: white;
+  width: 50px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+
+.send:hover {
+  background: #ab91ff;
+}
+
+.note {
+  text-align: center;
+  color: #88889c;
+  font-size: 12px;
+  padding: 5px 10px 12px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">✦ HEAM AI</div>
+  <button class="new-chat" onclick="newChat()">
+    + Новый чат
+  </button>
+</header>
+
+<main>
+  <div id="messages"></div>
+
+  <div class="input-area">
+    <textarea
+      id="input"
+      placeholder="Спроси HEAM о чём-нибудь..."
+      rows="1"
+    ></textarea>
+    <button
+      class="send"
+      onclick="sendMessage()"
+      aria-label="Отправить"
+    >➤</button>
+  </div>
+
+  <div class="note">
+    HEAM AI · Демонстрационная версия
+  </div>
+</main>
+
+<script>
+const messages = document.getElementById("messages");
+const input = document.getElementById("input");
+
+let history = [];
+
+try {
+  const saved = JSON.parse(
+    localStorage.getItem("heam_history") || "[]"
+  );
+
+  if (Array.isArray(saved)) {
+    history = saved;
+  }
+} catch (error) {
+  history = [];
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(
+      "heam_history",
+      JSON.stringify(history)
+    );
+  } catch (error) {
+    console.log("История временно не сохраняется.");
+  }
+}
+
+function addMessage(text, role) {
+  const div = document.createElement("div");
+  div.className = "message " + role;
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function render() {
+  messages.innerHTML = "";
+
+  if (history.length === 0) {
+    const welcome = document.createElement("div");
+    welcome.className = "welcome";
+
+    const title = document.createElement("h1");
+    title.textContent = "Привет! Я HEAM AI ✦";
+
+    const subtitle = document.createElement("p");
+    subtitle.textContent =
+      "Твой персональный AI-помощник";
+
+    welcome.appendChild(title);
+    welcome.appendChild(subtitle);
+    messages.appendChild(welcome);
+  }
+
+  history.forEach(item => {
+    addMessage(item.text, item.role);
+  });
+}
+
+function demoAnswer(question) {
+  const q = question.toLowerCase().trim();
+
+  if (/привет|здравствуй|хай/.test(q)) {
+    return "Привет! 💜 Я HEAM AI. Чем могу помочь?";
+  }
+
+  if (/как дела/.test(q)) {
+    return "У меня всё отлично! А как у тебя дела?";
+  }
+
+  if (/как тебя зовут|кто ты/.test(q)) {
+    return "Я HEAM AI — твой персональный AI-помощник!";
+  }
+
+  if (/кто тебя создал/.test(q)) {
+    return "Меня создаёт мой разработчик в проекте HEAM AI!";
+  }
+
+  if (/что ты умеешь/.test(q)) {
+    return "Пока я работаю в демонстрационном режиме. Скоро мне можно будет подключить настоящую AI-модель!";
+  }
+
+  if (/спасибо/.test(q)) {
+    return "Всегда пожалуйста! 💜";
+  }
+
+  if (/пока|до свидания/.test(q)) {
+    return "До встречи! Возвращайся в HEAM AI!";
+  }
+
+  return "Я получил твоё сообщение: " +
+    question +
+    "\n\nСейчас я работаю в демонстрационном режиме. Для ответа на любые вопросы мне нужно подключить настоящую AI-модель.";
+}
+
+function sendMessage() {
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  input.value = "";
+
+  history.push({
+    role: "user",
+    text: text
+  });
+
+  saveHistory();
+  render();
+
+  const answer = demoAnswer(text);
+
+  history.push({
+    role: "ai",
+    text: answer
+  });
+
+  saveHistory();
+  render();
+}
+
+function newChat() {
+  history = [];
+  saveHistory();
+  render();
+  input.focus();
+}
+
+input.addEventListener("keydown", function(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
+  }
+});
+
+render();
+</script>
+
+</body>
+</html>

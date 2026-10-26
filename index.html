@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>HEAM AI — Твой AI-помощник</title>
+
 <style>
 * {
   box-sizing: border-box;
@@ -43,6 +45,10 @@ button {
   color: white;
   padding: 12px 16px;
   border-radius: 10px;
+}
+
+.new-chat:hover {
+  background: #504269;
 }
 
 main {
@@ -94,6 +100,20 @@ main {
   border: 1px solid #38384c;
 }
 
+.thinking {
+  color: #b395ff;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .input-area {
   margin: 14px;
   padding: 12px;
@@ -120,6 +140,7 @@ textarea {
   background: #9975ff;
   color: white;
   width: 50px;
+  min-width: 50px;
   border-radius: 12px;
   font-size: 22px;
 }
@@ -128,11 +149,34 @@ textarea {
   background: #ab91ff;
 }
 
+.send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .note {
   text-align: center;
   color: #88889c;
   font-size: 12px;
   padding: 5px 10px 12px;
+}
+
+@media (max-width: 600px) {
+  .logo {
+    font-size: 20px;
+  }
+
+  .welcome h1 {
+    font-size: 30px;
+  }
+
+  .message {
+    max-width: 95%;
+  }
+
+  header {
+    padding: 0 12px;
+  }
 }
 </style>
 </head>
@@ -141,37 +185,51 @@ textarea {
 
 <header>
   <div class="logo">✦ HEAM AI</div>
+
   <button class="new-chat" onclick="newChat()">
     + Новый чат
   </button>
 </header>
 
 <main>
+
   <div id="messages"></div>
 
   <div class="input-area">
+
     <textarea
       id="input"
       placeholder="Спроси HEAM о чём-нибудь..."
       rows="1"
     ></textarea>
+
     <button
+      id="sendButton"
       class="send"
       onclick="sendMessage()"
       aria-label="Отправить"
     >➤</button>
+
   </div>
 
   <div class="note">
-    HEAM AI · Демонстрационная версия
+    HEAM AI ✦ Твой персональный AI-помощник
   </div>
+
 </main>
 
 <script>
+
+const API_URL =
+  "https://heam-ai.mykhailo-moholivets.workers.dev/";
+
 const messages = document.getElementById("messages");
 const input = document.getElementById("input");
+const sendButton = document.getElementById("sendButton");
 
 let history = [];
+let loading = false;
+let chatVersion = 0;
 
 try {
   const saved = JSON.parse(
@@ -179,7 +237,11 @@ try {
   );
 
   if (Array.isArray(saved)) {
-    history = saved;
+    history = saved.filter(item =>
+      item &&
+      (item.role === "user" || item.role === "ai") &&
+      typeof item.text === "string"
+    );
   }
 } catch (error) {
   history = [];
@@ -192,14 +254,16 @@ function saveHistory() {
       JSON.stringify(history)
     );
   } catch (error) {
-    console.log("История временно не сохраняется.");
+    console.log("Не удалось сохранить историю.");
   }
 }
 
 function addMessage(text, role) {
   const div = document.createElement("div");
+
   div.className = "message " + role;
   div.textContent = text;
+
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -226,50 +290,34 @@ function render() {
   history.forEach(item => {
     addMessage(item.text, item.role);
   });
+
+  if (loading) {
+    const thinking = document.createElement("div");
+
+    thinking.className = "message ai thinking";
+    thinking.textContent = "✦ HEAM AI думает...";
+
+    messages.appendChild(thinking);
+  }
+
+  messages.scrollTop = messages.scrollHeight;
 }
 
-function demoAnswer(question) {
-  const q = question.toLowerCase().trim();
-
-  if (/привет|здравствуй|хай/.test(q)) {
-    return "Привет! 💜 Я HEAM AI. Чем могу помочь?";
-  }
-
-  if (/как дела/.test(q)) {
-    return "У меня всё отлично! А как у тебя дела?";
-  }
-
-  if (/как тебя зовут|кто ты/.test(q)) {
-    return "Я HEAM AI — твой персональный AI-помощник!";
-  }
-
-  if (/кто тебя создал/.test(q)) {
-    return "Меня создаёт мой разработчик в проекте HEAM AI!";
-  }
-
-  if (/что ты умеешь/.test(q)) {
-    return "Пока я работаю в демонстрационном режиме. Скоро мне можно будет подключить настоящую AI-модель!";
-  }
-
-  if (/спасибо/.test(q)) {
-    return "Всегда пожалуйста! 💜";
-  }
-
-  if (/пока|до свидания/.test(q)) {
-    return "До встречи! Возвращайся в HEAM AI!";
-  }
-
-  return "Я получил твоё сообщение: " +
-    question +
-    "\n\nСейчас я работаю в демонстрационном режиме. Для ответа на любые вопросы мне нужно подключить настоящую AI-модель.";
-}
-
-function sendMessage() {
+async function sendMessage() {
   const text = input.value.trim();
 
-  if (!text) return;
+  if (!text || loading) return;
+
+  if (text.length > 2000) {
+    alert("Сообщение слишком длинное.");
+    return;
+  }
 
   input.value = "";
+  loading = true;
+  sendButton.disabled = true;
+
+  const currentChat = chatVersion;
 
   history.push({
     role: "user",
@@ -279,19 +327,62 @@ function sendMessage() {
   saveHistory();
   render();
 
-  const answer = demoAnswer(text);
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: text
+      })
+    });
 
-  history.push({
-    role: "ai",
-    text: answer
-  });
+    const data = await response.json();
 
-  saveHistory();
-  render();
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Ошибка сервера"
+      );
+    }
+
+    if (currentChat !== chatVersion) return;
+
+    history.push({
+      role: "ai",
+      text: data.reply ||
+        "Не удалось получить ответ."
+    });
+
+  } catch (error) {
+    if (currentChat !== chatVersion) return;
+
+    console.error("HEAM AI:", error);
+
+    history.push({
+      role: "ai",
+      text:
+        "Не удалось связаться с HEAM AI. " +
+        "Попробуй отправить сообщение ещё раз."
+    });
+
+  } finally {
+    if (currentChat === chatVersion) {
+      loading = false;
+      sendButton.disabled = false;
+      saveHistory();
+      render();
+      input.focus();
+    }
+  }
 }
 
 function newChat() {
+  chatVersion++;
   history = [];
+  loading = false;
+  sendButton.disabled = false;
+
   saveHistory();
   render();
   input.focus();
@@ -305,6 +396,7 @@ input.addEventListener("keydown", function(event) {
 });
 
 render();
+
 </script>
 
 </body>
